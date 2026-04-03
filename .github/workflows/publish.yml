@@ -1,0 +1,46 @@
+name: Manual Publish
+
+on:
+  workflow_dispatch: # This creates the "Run workflow" button
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # Crucial: Allows the runner to save changes back to your repo
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install jinja2
+
+      - name: Prepare Folders
+        # Ensures folders exist so scripts don't crash if they were missing in the upload
+        run: mkdir -p blogs images data src/images
+
+      - name: Run Blog Generator
+        run: python generate_blogs.py
+
+      - name: Run Index Builder
+        run: python build.py
+
+      - name: Commit and Push changes
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          
+          # The -f (force) flag bypasses the .gitignore for these specific folders
+          git add -f blogs/ images/ data/ index.html
+          
+          # Only commit if there are actually changes to avoid errors
+          git commit -m "Automated publish: $(date +'%Y-%m-%d')" || echo "No changes to commit"
+          git push
